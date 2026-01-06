@@ -11,7 +11,7 @@
 
 ## About DeepHolter
 
-_**What is DeepHolter? **_DeepHolter is an interpretable multimodal model that integrates Transformer and Large Language Model (LLM) architectures for 2-year cardiovascular mortality prediction with explainable confidence scores, which fuses multi-time-scale electrophysiological and clinical information from 12-lead, 24-hour Holter voltage data for inpatients. The model consists of two stages: (1) Cardiovascular mortality prediction, comprising an election module, a signal encoder, a feature encoder, a fusion encoder, a circadian positional encoding (PE) block, and a prediction head to yield a 2-year cardiovascular mortality risk score; (2) Interpretation & confidence estimation, which integrates cosine-similarity-based case retrieval and SHAP-guided prompting to generate individualized explanatory reports and risk-confidence scores.
+_**What is DeepHolter?**_ DeepHolter is an interpretable multimodal model that integrates Transformer and Large Language Model (LLM) architectures for 2-year cardiovascular mortality prediction with explainable confidence scores, which fuses multi-time-scale electrophysiological and clinical information from 12-lead, 24-hour Holter voltage data for inpatients. The model consists of two stages: (1) Cardiovascular mortality prediction, comprising an election module, a signal encoder, a feature encoder, a fusion encoder, a circadian positional encoding (PE) block, and a prediction head to yield a 2-year cardiovascular mortality risk score; (2) Interpretation & confidence estimation, which integrates cosine-similarity-based case retrieval and SHAP-guided prompting to generate individualized explanatory reports and risk-confidence scores.
 
 
 
