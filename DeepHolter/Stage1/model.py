@@ -90,9 +90,10 @@ class Model_All(nn.Module):
 
         out = self.aggregation_transformer(out)
         out = out.mean(dim=1)
+        out_embed = out
         out = self.linear(out)
         if bc_only:
             return torch.sigmoid(out)
         else:
-            return out,None, ca_out, resnet_embed_full, feature_embed_full
+            return out,None, ca_out, resnet_embed_full, feature_embed_full, out_embed
 

@@ -272,7 +272,7 @@ for epoch in range(n_epoch):  # loop over the dataset multiple times
 
         optimizer.zero_grad()
         # forward + backward + optimize
-        pred,contra_loss,_,_,_ = model(inputs,positional,data_mask,patientinfo,timeinfo,chara,bc_only=False)
+        pred,contra_loss,_,_,_,out_embed = model(inputs,positional,data_mask,patientinfo,timeinfo,chara,bc_only=False)
 
         loss = criterion(pred, y)
 
@@ -325,7 +325,7 @@ for epoch in range(n_epoch):  # loop over the dataset multiple times
             data_mask = data_mask.to(device)
             y = y.to(device)
             
-            pred,contra_loss,_,_,_ = model(inputs,positional,data_mask,patientinfo,timeinfo,chara,bc_only=False)
+            pred,contra_loss,_,_,_,out_embed = model(inputs,positional,data_mask,patientinfo,timeinfo,chara,bc_only=False)
 
             loss = criterion(pred, y)
             ##
@@ -369,7 +369,7 @@ for epoch in range(n_epoch):  # loop over the dataset multiple times
             data_mask = data_mask.to(device)
             y = y.to(device)
             
-            pred,contra_loss,_,_,_ = model(inputs,positional,data_mask,patientinfo,timeinfo,chara,bc_only=False)
+            pred,contra_loss,_,_,_,out_embed = model(inputs,positional,data_mask,patientinfo,timeinfo,chara,bc_only=False)
 
             loss = criterion(pred, y)
 
