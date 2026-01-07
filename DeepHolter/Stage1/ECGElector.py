@@ -28,8 +28,8 @@ class ECGElector(nn.Module):
         """
         
         Args:
-            input_tensor: (batch, 360, 50, 2000, 12)
-            data_mask: (batch, 360, 50), 0 is pad
+            input_tensor: (batch, 360, 24, 2000, 12)
+            data_mask: (batch, 360, 24), 0 is pad
             
         Returns:
             selected_indices: (batch, 6)
@@ -40,24 +40,24 @@ class ECGElector(nn.Module):
         
         reshaped = reshaped.permute(0, 2, 1)
         
-        instance_features = self.global_pool(reshaped)  # (batch*360*50, 24)
+        instance_features = self.global_pool(reshaped)  # (batch*360*24, 24)
         
         instance_features = instance_features.reshape(
             batch_size, num_bags, num_instances, -1
         )
         
-        instance_scores = self.scorer(instance_features)  # (batch, 360, 50, 1)
-        instance_scores = instance_scores.squeeze(-1)  # (batch, 360, 50)
+        instance_scores = self.scorer(instance_features)  # (batch, 360, 24, 1)
+        instance_scores = instance_scores.squeeze(-1)  # (batch, 360, 24)
         
         if data_mask is not None:
             assert data_mask.shape == (batch_size, num_bags, num_instances), \
-                f"data_mask shape {data_mask.shape} should be (batch, 360, 50)"
+                f"data_mask shape {data_mask.shape} should be (batch, 360, 24)"
             
             instance_scores = instance_scores.masked_fill(data_mask == 0, -1e9)
         else:
             with torch.no_grad():
 
-                instance_energy = torch.norm(input_tensor, dim=(3, 4))  # (batch, 360, 50)
+                instance_energy = torch.norm(input_tensor, dim=(3, 4))  # (batch, 360, 24)
 
                 instance_has_signal = (instance_energy > 1e-6).float()
             
