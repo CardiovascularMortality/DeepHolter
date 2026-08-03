@@ -68,7 +68,7 @@ y_xlsx = sum_excel[["ID","Group"]].copy()
 test_size=0.3
 valid_size=0.1
 train_size = 0.7
-batch_size = 32
+batch_size = 8
 
 expname = "rs"
 #
@@ -91,7 +91,7 @@ timeinfo_list = [i.split('_')[0] for i in timeinfo_list]
 #Group=1
 sum_cvd_excel = sum_excel[
     (sum_excel["Group"] == 1) &
-    ((sum_excel["Hospital"] == 0) | (sum_excel["Hospital"] == 1))
+    (sum_excel["Hospital"] == 0)
 ]
 #
 sum_cvd_excel = sum_cvd_excel[sum_cvd_excel["ID"].isin(timeinfo_list)]
@@ -106,10 +106,10 @@ train_cvd_filefolder = cvd_filefolder[n_test:]
 ###############################################
 
 
-# # Group=0
+# 
 sum_live_excel = sum_excel[
     (sum_excel["Group"] == 0) &
-    ((sum_excel["Hospital"] == 0) | (sum_excel["Hospital"] == 1))
+    (sum_excel["Hospital"] == 0)
 ]
 sum_live_excel = sum_live_excel[sum_live_excel["ID"].isin(timeinfo_list)]
 
@@ -123,8 +123,8 @@ test_live_filefolder = live_filefolder[:n_test]
 train_live_filefolder = live_filefolder[n_test:]
 #############################################
 
-## C-E
-external_valid__filefolder = list(sum_excel[(sum_excel["Hospital"]!=0)&(sum_excel["Hospital"]!=1)]["ID"])
+#
+external_valid__filefolder = list(sum_excel[(sum_excel["Hospital"]!=0)]["ID"])
 
 external_valid__filefolder = [i for i in external_valid__filefolder if i in timeinfo_list]
 
