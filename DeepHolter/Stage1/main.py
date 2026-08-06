@@ -236,9 +236,9 @@ model.to(device)
 
 print("model loaded.")
 #
-# pos_weight = torch.tensor([5.00]).to(device)
-# criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
-criterion = nn.BCEWithLogitsLoss()
+pos_weight = torch.tensor([5.00]).to(device)
+criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+# criterion = nn.BCEWithLogitsLoss()
 
 #
 optimizer = optim.AdamW(model.parameters(), lr=1e-5,weight_decay=0)
