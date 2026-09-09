@@ -43,10 +43,10 @@ class Model_All(nn.Module):
 
         device = x_list.device
 
-        selected_idx = self.elector(x_list, data_mask_list, bag_mask)
+        selected_idx, elector_gate = self.elector(x_list, data_mask_list, bag_mask)
 
         batch_size, bag_size, *rest = x_list.shape
-        selected_idx = torch.clamp(selected_idx.long(), 0, bag_size - 1)
+        selected_idx = torch.clamp(selected_idx.detach().long(), 0, bag_size - 1)
         
         batch_idx = torch.arange(batch_size, device=device).view(-1, 1).expand_as(selected_idx)
         
@@ -75,6 +75,9 @@ class Model_All(nn.Module):
 
         #
         out = out.view(B, N, -1)
+
+        # 
+        out = out * elector_gate.unsqueeze(-1)
 
         #
         ca_out = ca_out.view(B, N, -1)
