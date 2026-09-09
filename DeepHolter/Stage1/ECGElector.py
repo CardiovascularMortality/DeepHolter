@@ -32,11 +32,13 @@ class ECGElector(nn.Module):
             data_mask: (batch, 360, 24), 0 is pad
             
         Returns:
-            selected_indices: (batch, 6)
+            selected_indices: (batch, 6), long
+            gate: (batch, 6), float
         """
+        neg_inf = torch.finfo(input_tensor.dtype).min / 2
         batch_size, num_bags, num_instances, seq_len, num_leads = input_tensor.shape
         
-        # 1. 提取每个instance的特征
+        # 
         reshaped = input_tensor.reshape(-1, seq_len, num_leads)
         
         reshaped = reshaped.permute(0, 2, 1)
@@ -47,7 +49,7 @@ class ECGElector(nn.Module):
             batch_size, num_bags, num_instances, -1
         )
         
-        # 2. 计算每个instance的分数
+        # 
         instance_scores = self.scorer(instance_features)  # (batch, 360, 24, 1)
         instance_scores = instance_scores.squeeze(-1)  # (batch, 360, 24)
         
@@ -55,7 +57,7 @@ class ECGElector(nn.Module):
             assert data_mask.shape == (batch_size, num_bags, num_instances), \
                 f"data_mask shape {data_mask.shape} should be (batch, 360, 24)"
             
-            instance_scores = instance_scores.masked_fill(data_mask == 0, -1e9)
+            instance_scores = instance_scores.masked_fill(data_mask == 0, neg_inf)
         else:
             with torch.no_grad():
 
@@ -64,7 +66,7 @@ class ECGElector(nn.Module):
                 instance_has_signal = (instance_energy > 1e-6).float()
             
 
-            instance_scores = instance_scores.masked_fill(instance_has_signal == 0, -1e9)
+            instance_scores = instance_scores.masked_fill(instance_has_signal == 0, neg_inf)
         
 
         bag_scores, _ = torch.max(instance_scores, dim=2)  # (batch, 360)
@@ -72,23 +74,22 @@ class ECGElector(nn.Module):
         if bag_mask is not None:
             assert bag_mask.shape == (batch_size, num_bags), \
                 f"bag_mask shape {bag_mask.shape} should be (batch, 360)"
-            bag_scores = bag_scores.masked_fill(bag_mask == 0, -1e9)
+            bag_scores = bag_scores.masked_fill(bag_mask == 0, neg_inf)
 
         if data_mask is not None:
             bag_has_valid = (data_mask.sum(dim=2) > 0).float()  # (batch, 360)
-            bag_scores = bag_scores.masked_fill(bag_has_valid == 0, -1e9)
+            bag_scores = bag_scores.masked_fill(bag_has_valid == 0, neg_inf)
         else:
 
             bag_has_valid = (instance_has_signal.sum(dim=2) > 0).float()
-            bag_scores = bag_scores.masked_fill(bag_has_valid == 0, -1e9)
+            bag_scores = bag_scores.masked_fill(bag_has_valid == 0, neg_inf)
         
-        # 6. 分组选举
-        selected_indices = self._elect_by_groups(bag_scores)
+        selected_indices, gate = self._elect_by_groups(bag_scores)
         
-        return selected_indices
+        return selected_indices, gate
     
     def _elect_by_groups(self, bag_scores):
-        """分组选举实现"""
+        
         batch_size, num_bags = bag_scores.shape
         
         assert num_bags == self.num_selected * self.group_size, \
@@ -96,10 +97,19 @@ class ECGElector(nn.Module):
         
         group_scores = bag_scores.view(batch_size, self.num_selected, self.group_size)
         
-        _, group_indices = torch.max(group_scores, dim=2)  # (batch, num_selected)
+        group_indices = torch.argmax(group_scores, dim=2)  # (batch, num_selected)
+        
+        
+        probs = torch.softmax(group_scores, dim=2)  # (batch, num_selected, group_size)
+        onehot = torch.zeros_like(probs).scatter_(
+            2, group_indices.unsqueeze(-1), 1.0
+        )
+        
+        st_onehot = (onehot - probs).detach() + probs
+        gate = st_onehot.gather(2, group_indices.unsqueeze(-1)).squeeze(-1)  # (batch, num_selected)
         
         offsets = torch.arange(0, num_bags, self.group_size, 
                              device=bag_scores.device).unsqueeze(0)  # (1, num_selected)
-        global_indices = group_indices + offsets
+        global_indices = (group_indices + offsets).detach()
         
-        return global_indices
+        return global_indices, gate
