@@ -5,7 +5,7 @@ import os
 from time import time 
 import numpy as np 
 import torchvision
-from MyDataset_BC import MyDataset
+from MyDataset_BC import MyDataset, fit_ecg_feature_means
 from model import *
 import torch.optim as optim
 from tqdm import tqdm
@@ -60,8 +60,6 @@ cvd_file_paths = ""
 cvd_chara_paths = ""
 cvd_timeinfo_paths = ""
 
-file_list = os.listdir(file_paths)# recordid_de.csv
-
 sum_excel = pd.read_excel(".xlsx")
 
 y_xlsx = sum_excel[["ID","Group"]].copy()
@@ -84,9 +82,8 @@ test_live_filefolder = []
 train_cvd_filefolder = []
 train_live_filefolder = []
 
-timeinfo_list = os.listdir(timeinfo_paths)
-
-timeinfo_list = [i.split('_')[0] for i in timeinfo_list]
+live_time_ids = {name.split('_')[0] for name in os.listdir(timeinfo_paths)}
+cvd_time_ids = {name.split('_')[0] for name in os.listdir(cvd_timeinfo_paths)}
 
 #Group=1
 sum_cvd_excel = sum_excel[
@@ -94,7 +91,7 @@ sum_cvd_excel = sum_excel[
     (sum_excel["Hospital"] == 0)
 ]
 #
-sum_cvd_excel = sum_cvd_excel[sum_cvd_excel["ID"].isin(timeinfo_list)]
+sum_cvd_excel = sum_cvd_excel[sum_cvd_excel["ID"].isin(cvd_time_ids)]
 
 cvd_filefolder = sum_cvd_excel["ID"].tolist()
 random.shuffle(cvd_filefolder)  
@@ -111,7 +108,7 @@ sum_live_excel = sum_excel[
     (sum_excel["Group"] == 0) &
     (sum_excel["Hospital"] == 0)
 ]
-sum_live_excel = sum_live_excel[sum_live_excel["ID"].isin(timeinfo_list)]
+sum_live_excel = sum_live_excel[sum_live_excel["ID"].isin(live_time_ids)]
 
 
 live_filefolder = sum_live_excel["ID"].tolist()
@@ -124,9 +121,11 @@ train_live_filefolder = live_filefolder[n_test:]
 #############################################
 
 #
-external_valid__filefolder = list(sum_excel[(sum_excel["Hospital"]!=0)]["ID"])
-
-external_valid__filefolder = [i for i in external_valid__filefolder if i in timeinfo_list]
+cvd_ids = set(y_xlsx.loc[y_xlsx["Group"] != 0, "ID"])
+external_valid__filefolder = [
+    i for i in sum_excel.loc[sum_excel["Hospital"] != 0, "ID"]
+    if i in (cvd_time_ids if i in cvd_ids else live_time_ids)
+]
 
 
 print(f"cvd number:{len(cvd_filefolder)}, live number:{len(live_filefolder)}, external valid number:{len(external_valid__filefolder)}")
@@ -162,7 +161,8 @@ for folder, path_list, positional_list, bag_mask_list, cnt_name in [
     (external_valid__filefolder, external_valid_path, external_valid_positional_list, external_valid_bag_mask, "external_valid_cnt")
 ]:
     for i in folder:
-        timeinfo = pd.read_excel(timeinfo_paths + i + "_timeinfo.xlsx")
+        time_dir = cvd_timeinfo_paths if i in cvd_ids else timeinfo_paths
+        timeinfo = pd.read_excel(os.path.join(time_dir, i + "_timeinfo.xlsx"))
         #
         # hour_max = timeinfo["Hour"].value_counts().max()
         # if hour_max > 360:
@@ -171,8 +171,9 @@ for folder, path_list, positional_list, bag_mask_list, cnt_name in [
         tmp_list = [[] for _ in range(hour_max)]
         tmp_list2 = [[] for _ in range(hour_max)]
         bag_mask = [0]*hour_max
-        th = timeinfo[timeinfo["Hour"].isin(timeinfo['Hour'].unique()[0:24])]
-        first_hour = th["Hour"].min()
+        clock_hours = pd.to_datetime(timeinfo["Hour"]).dt.floor("h")
+        th = timeinfo.assign(Hour=clock_hours)
+        th = th[clock_hours.isin(clock_hours.dropna().unique()[:24])]
         for hour in th["Hour"].unique():
             tmp = th[th["Hour"] == hour]
             tmp_len = len(tmp)
@@ -183,8 +184,8 @@ for folder, path_list, positional_list, bag_mask_list, cnt_name in [
             for j in range(tmp_len):
                 tmp_list[j].append(f"{i}_{tmp.index[j]}.npy")
                 a = [0] * hour_onehot_len
-                hour_cur = ((hour - first_hour).total_seconds() // 3600)%24
-                a[int(hour_cur)] = 1
+                hour_cur = pd.Timestamp(hour).hour % 24
+                a[hour_cur] = 1
                 max_hour = max(max_hour, int(hour_cur))
                 tmp_list2[j].append(a)
                 bag_mask[j] = 1
@@ -200,21 +201,27 @@ print(f"train cvd cnt:{train_cvd_cnt}, train live cnt:{train_live_cnt-train_cvd_
 print(f"Total round:{(len(train_path)+len(test_path)+len(external_valid_path))//batch_size}")
 
 
-train_means = None
+train_means = fit_ecg_feature_means(
+    train_path, chara_paths, cvd_chara_paths, set(train_cvd_filefolder)
+)
 train_stds = None
 scalar = None
-charas_len = len(pd.read_csv(chara_paths+file_list[0].split("_")[0]+".csv").columns)
 
 #
 patientinfo_xlsx = sum_excel[["ID","Age","Sex"]].copy()
 age_max = patientinfo_xlsx["Age"].max()
 age_min = patientinfo_xlsx["Age"].min()
 age_mean = patientinfo_xlsx["Age"].mean()
-age_std = patientinfo_xlsx["Age"].std()
+if pd.isna(age_mean):
+    raise ValueError("Cannot impute patient age without observed ages.")
 patientinfo_xlsx["Age"] = patientinfo_xlsx["Age"].fillna(int(age_mean))
 patientinfo_xlsx["Age"] = patientinfo_xlsx["Age"].astype(float)
 #
-patientinfo_xlsx["Age"] = (patientinfo_xlsx["Age"]-age_min)/(age_max-age_min)
+age_range = age_max - age_min
+if age_range == 0:
+    patientinfo_xlsx["Age"] = 0.0
+else:
+    patientinfo_xlsx["Age"] = (patientinfo_xlsx["Age"] - age_min) / age_range
 
 #0 1 
 patientinfo_xlsx = pd.get_dummies(patientinfo_xlsx,columns=["Sex"],dtype=float)
