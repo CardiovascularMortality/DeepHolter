@@ -248,7 +248,7 @@ criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 # criterion = nn.BCEWithLogitsLoss()
 
 #
-optimizer = optim.AdamW(model.parameters(), lr=1e-5,weight_decay=0)
+optimizer = optim.AdamW(model.parameters(), lr=1e-5,weight_decay=0.01)
 
 os.makedirs('pth/'+expname,exist_ok=True)
 writer = SummaryWriter(log_dir='runs/'+expname)
