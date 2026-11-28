@@ -209,14 +209,22 @@ scalar = None
 
 #
 patientinfo_xlsx = sum_excel[["ID","Age","Sex"]].copy()
-age_max = patientinfo_xlsx["Age"].max()
-age_min = patientinfo_xlsx["Age"].min()
-age_mean = patientinfo_xlsx["Age"].mean()
-if pd.isna(age_mean):
-    raise ValueError("Cannot impute patient age without observed ages.")
-patientinfo_xlsx["Age"] = patientinfo_xlsx["Age"].fillna(int(age_mean))
-patientinfo_xlsx["Age"] = patientinfo_xlsx["Age"].astype(float)
-#
+patientinfo_xlsx["Age"] = pd.to_numeric(patientinfo_xlsx["Age"], errors="coerce")
+training_ids = {
+    name.split("_")[0]
+    for patient_bags in train_path
+    for bag in patient_bags
+    for name in bag
+}
+train_age = patientinfo_xlsx.loc[
+    patientinfo_xlsx["ID"].isin(training_ids), "Age"
+].dropna()
+if train_age.empty:
+    raise ValueError("Cannot fit patient-age preprocessing without observed training ages.")
+age_mean = train_age.mean()
+age_min = train_age.min()
+age_max = train_age.max()
+patientinfo_xlsx["Age"] = patientinfo_xlsx["Age"].fillna(age_mean).astype(float)
 age_range = age_max - age_min
 if age_range == 0:
     patientinfo_xlsx["Age"] = 0.0
